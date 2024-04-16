@@ -66,6 +66,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "auth_backend_jwt.urls"
 AUTH_USER_MODEL = "authentication.User"
+PASSWORD_RESET_TIMEOUT = 86400  # 1 day, in seconds
 
 TEMPLATES = [
     {
