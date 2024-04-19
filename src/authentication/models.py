@@ -1,10 +1,8 @@
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, AbstractUser, UserManager
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
-
-# Create your models here.
 
 
 class UserTypeChoices:
@@ -17,6 +15,44 @@ class UserTypeChoices:
     ]
 
 
+# User Manager
+class CustomUserManager(BaseUserManager):
+
+    def create_user(self, username, email, password=None, **kwargs):
+        
+        if not username:
+            raise ValueError("Username can't be None!")
+        
+        if not email:
+            raise ValueError("Email can't be None!")
+        
+        user = self.model(
+            email=self.normalize_email(email),
+            username=username,
+            **kwargs
+        )
+
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+    
+    def create_superuser(self, username, email, password=None, **kwargs):
+        user = self.create_user(
+           email=self.normalize_email(email),
+            username=username,
+            password=password,
+            **kwargs
+        )
+        user.is_active=True
+        user.is_staff=True
+        user.is_superuser=True
+        user.user_type=UserTypeChoices.ADMIN
+
+        user.save(using=self._db)
+        return user
+
+
+# Custom User Model
 class User(AbstractBaseUser, PermissionsMixin):
 
     username_validator = UnicodeUsernameValidator()
@@ -56,11 +92,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
 
-    objects = UserManager()
+    objects = CustomUserManager()
 
     EMAIL_FIELD = "email"
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["username"]
+    REQUIRED_FIELDS = ["username", "first_name", "last_name"]
 
     class Meta:
         verbose_name = _("user")

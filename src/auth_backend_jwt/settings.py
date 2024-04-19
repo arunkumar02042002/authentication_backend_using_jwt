@@ -90,24 +90,17 @@ WSGI_APPLICATION = "auth_backend_jwt.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
 
-# Change Databases as per your use
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': config('NAME'),
-#         "USER": config('USER'),
-#         "PASSWORD": config('PASSWORD'),
-#         "HOST": config('HOST'),
-#         "PORT": config('PORT')
-#     },
-# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('DB_NAME'),
+        "USER": config('DB_USER'),
+        "PASSWORD": config('DB_PASSWORD'),
+        "HOST": config('DB_HOST'),
+        "PORT": config('DB_PORT')
+    },
+}
 
 
 # Password validation
@@ -168,9 +161,9 @@ REST_FRAMEWORK = {
 ACCESS_TOKEN_VALID_DURATION = int(config("ACCESS_TOKEN_VALID_DURATION"))
 REFRESH_TOKEN_VALID_DURATION = int(config("REFRESH_TOKEN_VALID_DURATION"))
 
-# Whether to allow refresh token to unverified users
-ALLOW_NEW_REFRESH_TOKENS_FOR_UNVERIFIED_USERS = bool(
-    config('ALLOW_NEW_REFRESH_TOKENS_FOR_UNVERIFIED_USERS'))
+# Whether to allow refresh token to unverified users or not
+ALLOW_NEW_REFRESH_TOKENS_FOR_UNVERIFIED_USERS = config('ALLOW_NEW_REFRESH_TOKENS_FOR_UNVERIFIED_USERS', cast=bool)
+LOGOUT_AFTER_PASSWORD_CHANGE = config('LOGOUT_AFTER_PASSWORD_CHANGE', cast=bool)
 
 AUTHORIZATION_DIR = os.path.join(Path(BASE_DIR), "authorization")
 JWT_PRIVATE_KEY_PATH = os.path.join(AUTHORIZATION_DIR, "jwt_key")
