@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.hashers import check_password
+from django.contrib.auth.tokens import default_token_generator
 
 # Rest Framework Imports
 from rest_framework.generics import GenericAPIView
@@ -299,6 +300,95 @@ class ChangePasswordView(GenericAPIView):
             "message": "Password changed successfully. Please login with new password.",
             "payload": {}
         }, status=status.HTTP_200_OK)
+
+
+class PasswordResetView(GenericAPIView):
+    serializer_class = auth_serializers.PasswordResetSerializer
+
+    def post(self, request,*args, **kwargs):
+        requested_data = request.data
+
+        serializer = self.serializer_class(data=requested_data, context={'request':request})
+
+        if serializer.is_valid() is False:
+            return Response({
+                "status":"error",
+                "message":validation_error_handler(serializer.errors),
+                "payload":{},
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        email = serializer.validated_data['email']
+        try:
+            user = User.objects.get(email=email, is_active=True)
+        except User.DoesNotExist:
+            return Response({
+                "status":"error",
+                "message":"No user with that email. Please enter your registered email address.",
+                "payload":{}
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if user is not None:
+            # Email
+            subject = "Verify Email for your account on My App"
+            template = "auth/email/password_reset.html"
+            context_data = {
+                "host": settings.FRONTEND_HOST,
+                "uidb64": urlsafe_base64_encode(force_bytes(user.id)),
+                "token": default_token_generator.make_token(user=user),
+                "protocol": settings.FRONTEND_PROTOCOL
+            }
+            print(context_data)
+
+            try:
+                # Send EMail here
+                return Response({
+                    "status": "success",
+                    "message": "Password Reset Link has been sent to the registered email address",
+                    "payload": {}
+                }, status=status.HTTP_200_OK)
+
+            except Exception as e:
+                return Response({
+                    "status": "error",
+                    "message": "Some error occurred",
+                    "payload": {}
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+
+class PasswordResetConfirmView(GenericAPIView):
+    serializer_class = auth_serializers.PasswordResetConfirmSerializer
+
+    def post(self, request, uidb64, token, *args, **kwargs):
+
+        requested_data = request.data
+        serializer = self.serializer_class(data=requested_data, context={'request':request})
+        if serializer.is_valid() is False:
+            return Response({
+                "status":"error",
+                "message":validation_error_handler(serializer.errors),
+                "payload":{},
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(id=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+
+        if user is not None and default_token_generator.check_token(user, token):
+            new_password = serializer.validated_data['new_password']
+            user.set_password(new_password)
+            return Response({
+                'status': 'success',
+                'message': 'Your password has been changed. Please login with your new password.',
+                'payload': {},
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "status": "error",
+            "message": "Password reset link is invalid.",
+            "payload": {}
+        }, status=status.HTTP_403_FORBIDDEN)
 
 
 class CustomTokenRefreshView(TokenRefreshView):

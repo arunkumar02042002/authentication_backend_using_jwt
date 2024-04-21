@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.contrib.auth.hashers import check_password
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode 
+from django.contrib.auth.tokens import default_token_generator
 
 
 # Rest Import
@@ -350,3 +351,71 @@ class ChangePasswordViewTest(TestCase):
         response = self.client.post(self.change_password_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+
+class PasswordResetViewTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.password_reset_url = reverse('password-reset')
+        # Create a user for testing
+        self.user = User.objects.create_user(username='testuser', email='test@example.com', password='test_password')
+
+    def test_password_reset_success(self):
+        """
+        Test successful password reset.
+        """
+        data = {'email': 'test@example.com'}
+        response = self.client.post(self.password_reset_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+
+    def test_password_reset_non_existent_email(self):
+        """
+        Test password reset with non-existent email.
+        """
+        data = {'email': 'nonexistent@example.com'}
+        response = self.client.post(self.password_reset_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_password_reset_for_inactive_user(self):
+        """
+        Test password reset with non-existent email.
+        """
+        self.user.is_active = False
+        self.user.save()
+        data = {'email': 'test@example.com'}
+        response = self.client.post(self.password_reset_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetConfirmViewTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username='testuser', email='test@example.com', password='test_password')
+        self.reset_confirm_url = reverse('password-reset-confirm', kwargs={'uidb64': urlsafe_base64_encode(force_bytes(self.user.pk)), 'token': default_token_generator.make_token(self.user)})
+        
+    def test_password_reset_confirm_success(self):
+        """
+        Test successful password reset confirmation.
+        """
+        data = {'new_password': 'new_test_password', 'confirm_password':'new_test_password'}
+        response = self.client.post(self.reset_confirm_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+    
+    def test_password_reset_confirm_incorrect_confirm_password(self):
+        """
+        Test incorrect confirm_password field.
+        """
+        data = {'new_password': 'new_test_password', 'confirm_password':'incorrect_test_password'}
+        response = self.client.post(self.reset_confirm_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_password_reset_confirm_invalid_token(self):
+        """
+        Test password reset confirmation with invalid token.
+        """
+        # Generate an invalid token by modifying the user's token
+        invalid_token = default_token_generator.make_token(User())
+        invalid_reset_confirm_url = reverse('password-reset-confirm', kwargs={'uidb64': urlsafe_base64_encode(force_bytes(self.user.pk)), 'token': invalid_token})
+        data = {'new_password': 'new_test_password', 'confirm_password':'new_test_password'}
+        response = self.client.post(invalid_reset_confirm_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

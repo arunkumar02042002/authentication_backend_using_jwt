@@ -130,6 +130,35 @@ class ChangePasswordSerializer(serializers.Serializer):
 
         return super().validate(attrs=attrs)
     
+class PasswordResetSerializer(serializers.Serializer):
+
+    email = serializers.EmailField(required=True)
+
+    extra_kwargs = {
+        'email': {
+            'validators': [EmailValidator]
+        }
+    }
+
+    def validate_email(self, email):
+        lower_case_email = email.lower()
+        return lower_case_email
+    
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    new_password = serializers.CharField(required=True)
+    confirm_password = serializers.CharField(required=True)
+
+    def validate(self, attrs):
+        confirm_password = attrs['confirm_password']
+        new_password = attrs['new_password']
+
+        if not confirm_password == new_password:
+            raise serializers.ValidationError({
+                "error":"Confirm Password and New Password must be same."
+            })
+
+        return super().validate(attrs=attrs)
 
 class CustomTokenRefreshSerializer(TokenRefreshSerializer):
     def validate(self, attrs):
